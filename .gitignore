@@ -1,0 +1,29 @@
+# Node modules
+node_modules
+package-lock.json
+yarn.lock
+
+# Adonis directory for storing tmp files
+tmp
+
+# Environment variables, never commit this file
+.env
+
+# The development sqlite file
+database/development.sqlite
+
+# VSCode & Webstorm history directories 
+.history
+.idea
+
+# Nuxt.js
+.nuxt/
+.DS_Store
+
+#Others
+.vscode
+debug.log
+.vscode/launch.json
+/public/File
+/credential-kyungbang-mail.json
+/kyungbang-token.json

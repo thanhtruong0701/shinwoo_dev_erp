@@ -1,0 +1,494 @@
+"use strict";
+
+const { DATE } = require("oracledb");
+
+const Helpers       = use('Helpers')
+const Antl          = use("Antl");
+const Utils         = use("Utils");
+const DBService = use("DBService")
+var Excel           = use('exceljs');
+var workbook        = new Excel.Workbook();
+class rpt6050061 {
+/*########################################################## Report JH ##################################################################################*/ 
+    async rpt_6050061_MS({ request, response, auth }) {
+        try 
+        { 
+            /*  P_RPT_ID: report_info.VAL1, P_RPT_URL: report_info.VAL2, P_RPT_FILE: report_info.VAL3,
+                P_COMP_ID: company_info.PARTNER_ID,P_COMP_NM: company_info.TEXT,P_COMP_TAX: company_info.TAX_CODE, P_COMP_ADD: company_info.ADDR1,
+                P_COMPANY: this.selectedCompany,P_TCO_BUSPLACE_PK: this.lstBizPlace, P_FR_DATE: this.from_date,P_FR_TO: this.to_date,P_VOUCHER_NO : this.txtVoucherNo,
+                P_PARTNER_PK : this.txtPartnerPK, P_ITEM_PK  : this.txtItem_PK, P_PL_PK : this.txtPLPK, P_ACC_PK: this.txtAccountPK, P_DELIVERY_NO : this.txtDeliveryNo,
+                P_SEQ  : this.txtSeq, P_STATUS : this.selectedStatus, P_WH_PK : this.selectedWH, 
+                P_BIZ_ID: BizPlace_info.NAME, P_BIZ_NM: BizPlace_info.LOC_NM, P_BIZ_TAX: BizPlace_info.TAX_CD, P_BIZ_ADD: BizPlace_info.ADDR_NM1
+            */
+            /****************************** Get Param *********************************/
+            let { para }        = request.get(['para']);
+            /********* Parse pram to json ********/
+            var item            = JSON.parse(para); 
+            const user          = await auth.getUser() ;
+            var COMP_ID         = item.P_COMP_ID, COMP_NM = item.P_COMP_NM, COMP_TAX = item.P_COMP_TAX, COMP_ADD = item.P_COMP_ADD;
+            var BIZ_ID          = item.P_BIZ_ID , BIZ_NM  = item.P_BIZ_NM , BIZ_TAX  = item.P_BIZ_TAX , BIZ_ADD  = item.P_BIZ_ADD;
+            const p_crt_by      = user.USER_ID;
+            const p_language    = request.header("accept-language", "ENG");
+            var file_nm         = [item.P_RPT_FILE];
+            var file_type       = ".xlsx";
+            var full_nm         = file_nm + file_type;
+            var file_new        = file_nm + p_crt_by + file_type;
+            var _resourcesPath  = [item.P_RPT_URL]+'/'+full_nm;
+            var _store          = "AC_RPT_6050061_MS";
+            var _param          = [item.P_COMPANY, item.P_TCO_BUSPLACE_PK, item.P_FR_DATE, item.P_FR_TO, item.P_PARTNER_PK, item.P_ITEM_PK, item.P_VOUCHER_NO, item.P_PL_PK ,item.P_ACC_PK, item.P_DELIVERY_NO, item.P_SEQ, item.P_STATUS, item.P_WH_PK];
+    
+            /***************************** Return failded ****************************/
+            if (!user) 
+            {
+                return response.send(Utils.response(false, "Request failed!", null));
+            } 
+            /****************************** Begin call store and write excell *********/
+            else 
+            { 
+                /********* Call store  ***************/ 
+                var dt_Data  = await DBService.callProcCursor(_store, _param , p_language , p_crt_by); 
+                if (dt_Data.length>0) 
+                {
+                    dt_Data = dt_Data;
+                } 
+                else 
+                {
+                    return response.send(Utils.response(false, "no_data_found", null))
+                } 
+                var _dictionary     = await DBService.callProcCursor("GET_DICTIONARY_REPORT", null, p_language, p_crt_by); 
+                if (_dictionary.length>0) 
+                {
+                    _dictionary = _dictionary;
+                } 
+                else 
+                { 
+                    _dictionary = [];
+                } 
+                /********* Read file excel ********/ 
+                const templateFile  = Helpers.resourcesPath(_resourcesPath); 
+                await workbook.xlsx.readFile(templateFile);
+                var worksheet       = workbook.getWorksheet(1);
+                /********* Write file excel ********/
+            
+                //INFOMATION COMPANY
+                var r_item = worksheet.getRow(1);
+                r_item.getCell(1).value = Utils.translate("COMPANY",_dictionary , p_language) + ": " + BIZ_ID +" - "+ BIZ_NM;    
+                r_item = worksheet.getRow(2);
+                r_item.getCell(1).value = Utils.translate("TAX_CODE",_dictionary, p_language) + ": "+ BIZ_TAX;   
+                r_item = worksheet.getRow(3);
+                r_item.getCell(1).value = Utils.translate("ADDRESS",_dictionary , p_language) + ": "+ BIZ_ADD;
+                var FromDate = item.P_FR_DATE;
+                var ToDate = item.P_FR_TO;
+                var strFrDate = FromDate.substr(6,2) + "/"+ FromDate.substr(4,2)+ "/"+ FromDate.substr(0,4);
+                var strToDate = ToDate.substr(6,2) + "/"+ ToDate.substr(4,2)+ "/"+ ToDate.substr(0,4);
+                worksheet.getCell("A6").value =  "Từ ngày " + strFrDate + " đến ngày " + strToDate; ;
+                
+                // thông tư
+                
+                var pos = 9; 
+                
+                Utils.excelInsertRows(worksheet, pos, dt_Data.length-1);
+                for (var i = 0; i < dt_Data.length; i++) 
+                {
+
+                    var row = worksheet.getRow(pos);
+
+                    row.getCell(1).value = dt_Data[i].TR_DATE;
+                    row.getCell(2).value = dt_Data[i].TR_DATE_VC;
+                    row.getCell(3).value = dt_Data[i].VOUCHERNO;
+                    row.getCell(4).value = dt_Data[i].INVOICE_NO;
+                    row.getCell(5).value = dt_Data[i].INVOICE_DATE;
+                    row.getCell(6).value = dt_Data[i].ITEM_CODE;
+                    row.getCell(7).value = dt_Data[i].ITEM_NAME;
+                    row.getCell(8).value = dt_Data[i].UOM;
+                    row.getCell(9).value = Number(dt_Data[i].AP_QTY);
+                    row.getCell(10).value = Number(dt_Data[i].AP_UPRICE);
+                    row.getCell(10).numFmt  = '_(* #,##0.00_);_(* (#,##0.00);_(* "-"_);_(@_)';
+                    row.getCell(11).value = Number(dt_Data[i].AP_TRAMT);
+                    row.getCell(12).value = dt_Data[i].DISCOUNT;
+                    row.getCell(13).value = Number(dt_Data[i].RTN_QTY);
+                    row.getCell(14).value = Number(dt_Data[i].RTN_UPRICE);
+                    row.getCell(15).value = Number(dt_Data[i].TOTAL_DISCOUNT);
+                    row.getCell(16).value = dt_Data[i].TK_CODE; //mã thống kê
+                    row.getCell(17).value = dt_Data[i].SEQ;
+                    row.getCell(18).value = dt_Data[i].TR_CCY;
+                    row.getCell(19).value = dt_Data[i].TR_RATE;
+                    row.getCell(20).value = Number(dt_Data[i].FC_UPRICE);
+                    row.getCell(20).numFmt  = '_(* #,##0.00_);_(* (#,##0.00);_(* "-"_);_(@_)';
+                    row.getCell(21).value = Number(dt_Data[i].FC_TRFAMT);
+                    if(dt_Data[i].ISTOTAL == '1' || dt_Data[i].ISTOTAL == '2')
+                    {
+                        row.getCell(10).numFmt  = '_(* #,##0.00_);_(* (#,##0.00);_(* ""_);_(@_)';
+                        row.getCell(20).numFmt  = '_(* #,##0.00_);_(* (#,##0.00);_(* ""_);_(@_)';
+                        for(let j = 1; j<=21; j++)
+                        {
+                            row.getCell(j).font   = { italic: false, bold: true, color: {argb:'000000'}, size:11, name: 'Times New Roman'};
+                        };
+                    }
+                    pos = pos + 1; 
+
+                }  
+                var row = worksheet.getRow(pos-1);
+                worksheet.mergeCells(pos-1,1,pos-1,8); 
+                /********* Print file excel ********/
+                const reportFile    = Helpers.tmpPath(file_new);
+                await workbook.xlsx.writeFile(reportFile)
+                return response.attachment( reportFile, file_new);
+            }
+        } 
+        catch (e) 
+        {
+            Utils.Logger({ LVL: "error", MODULE: "Report", FUNC: "rpt_6050061_MS", CONTENT: e.message })
+        // return response.send(Utils.response(false, e.message, null))
+        return response.send(null);
+        }
+    }
+    async rpt_6050061_AP_DETAIL_01({ request, response, auth }) {
+        try 
+        { 
+            /*  P_RPT_ID: report_info.VAL1, P_RPT_URL: report_info.VAL2, P_RPT_FILE: report_info.VAL3,
+                P_COMP_ID: company_info.PARTNER_ID,P_COMP_NM: company_info.TEXT,P_COMP_TAX: company_info.TAX_CODE, P_COMP_ADD: company_info.ADDR1,
+                P_COMPANY: this.selectedCompany,P_TCO_BUSPLACE_PK: this.lstBizPlace, P_FR_DATE: this.from_date,P_FR_TO: this.to_date,P_VOUCHER_NO : this.txtVoucherNo,
+                P_PARTNER_PK : this.txtPartnerPK, P_ITEM_PK  : this.txtItem_PK, P_PL_PK : this.txtPLPK, P_ACC_PK: this.txtAccountPK, P_DELIVERY_NO : this.txtDeliveryNo,
+                P_SEQ  : this.txtSeq, P_STATUS : this.selectedStatus, P_WH_PK : this.selectedWH, 
+                P_BIZ_ID: BizPlace_info.NAME, P_BIZ_NM: BizPlace_info.LOC_NM, P_BIZ_TAX: BizPlace_info.TAX_CD, P_BIZ_ADD: BizPlace_info.ADDR_NM1
+            */
+            /****************************** Get Param *********************************/
+            let { para }        = request.get(['para']);
+            /********* Parse pram to json ********/
+            var item            = JSON.parse(para); 
+            const user          = await auth.getUser() ;
+            var COMP_ID         = item.P_COMP_ID, COMP_NM = item.P_COMP_NM, COMP_TAX = item.P_COMP_TAX, COMP_ADD = item.P_COMP_ADD;
+            var BIZ_ID          = item.P_BIZ_ID , BIZ_NM  = item.P_BIZ_NM , BIZ_TAX  = item.P_BIZ_TAX , BIZ_ADD  = item.P_BIZ_ADD;
+            const p_crt_by      = user.USER_ID;
+            const p_language    = request.header("accept-language", "ENG");
+            var file_nm         = [item.P_RPT_FILE];
+            var file_type       = ".xlsx";
+            var full_nm         = file_nm + file_type;
+            var file_new        = file_nm + p_crt_by + file_type;
+            var _resourcesPath  = [item.P_RPT_URL]+'/'+full_nm;
+            var _store          = "AC_RPT_6050061_01";
+            //var _circular       = "AC_SEL_GET_TT_BPL";
+            var _param          = [item.P_COMPANY, item.P_TCO_BUSPLACE_PK, item.P_FR_DATE, item.P_FR_TO, item.P_PARTNER_PK, item.P_ITEM_PK, item.P_VOUCHER_NO, item.P_PL_PK ,item.P_ACC_PK, item.P_DELIVERY_NO, item.P_SEQ, item.P_STATUS, item.P_WH_PK];
+           // var _param_TT       = [item.P_CIRCULARS];
+            /***************************** Return failded ****************************/
+            if (!user) 
+            {
+                return response.send(Utils.response(false, "Request failed!", null));
+            } 
+            /****************************** Begin call store and write excell *********/
+            else 
+            { 
+                /********* Call store  ***************/ 
+                var dt_Data  = await DBService.callProcCursor(_store, _param , p_language , p_crt_by); 
+                if (dt_Data.length>0) 
+                {
+                    dt_Data = dt_Data;
+                } 
+                else 
+                {
+                    return response.send(Utils.response(false, "no_data_found", null))
+                } 
+                var _dictionary     = await DBService.callProcCursor("GET_DICTIONARY_REPORT", null, p_language, p_crt_by); 
+                if (_dictionary.length>0) 
+                {
+                    _dictionary = _dictionary;
+                } 
+                else 
+                { 
+                    _dictionary = [];
+                } 
+                /********* Read file excel ********/ 
+                const templateFile  = Helpers.resourcesPath(_resourcesPath); 
+                await workbook.xlsx.readFile(templateFile);
+                var worksheet       = workbook.getWorksheet(1);
+                /********* Write file excel ********/
+               
+                //INFOMATION COMPANY
+                var r_item = worksheet.getRow(1);
+                r_item.getCell(1).value = Utils.translate("COMPANY",_dictionary , p_language) + ": " + BIZ_ID +" - "+ BIZ_NM;    
+                r_item = worksheet.getRow(2);
+                r_item.getCell(1).value = Utils.translate("TAX_CODE",_dictionary, p_language) + ": "+ BIZ_TAX;   
+                r_item = worksheet.getRow(3);
+                r_item.getCell(1).value = Utils.translate("ADDRESS",_dictionary , p_language) + ": "+ BIZ_ADD;
+                var FromDate = item.P_FR_DATE;
+                var ToDate = item.P_FR_TO;
+                var strFrDate = FromDate.substr(6,2) + "/"+ FromDate.substr(4,2)+ "/"+ FromDate.substr(0,4);
+                var strToDate = ToDate.substr(6,2) + "/"+ ToDate.substr(4,2)+ "/"+ ToDate.substr(0,4);
+                worksheet.getCell("A5").value =  dt_Data[0].TITLE_RPT;
+                worksheet.mergeCells('A5', 'W5');
+                
+                 // thông tư
+                
+                var pos = 9; 
+                var l_length = 0; 
+                let ttl_amt_qty = 0;
+                let ttl_famt_ap = 0;
+                let ttl_amt_ap = 0;
+                // if(dt_Data.length>1)
+                // {
+                //      worksheet.duplicateRow(pos,dt_Data.length-1,true);
+                // }  
+                
+                Utils.excelInsertRows(worksheet, pos, dt_Data.length-1);
+               for (var i = 0; i < dt_Data.length; i++) 
+                {
+
+                    var row = worksheet.getRow(pos);
+
+                    row.getCell(1).value = dt_Data[i].VOUCHERNO;
+                    row.getCell(2).value = dt_Data[i].SLIP_NO;
+                    row.getCell(3).value = dt_Data[i].TR_DATE;
+                    row.getCell(4).value = dt_Data[i].ITEM_CODE;
+                    row.getCell(5).value = dt_Data[i].ITEM_NAME;
+                    row.getCell(6).value = dt_Data[i].UOM;
+                    row.getCell(7).value = Number(dt_Data[i].AP_QTY);
+                    row.getCell(8).value = Number(dt_Data[i].AP_UPRICE);
+                    row.getCell(8).numFmt  = '###,###,###,###.00';
+                    row.getCell(9).value = Number(dt_Data[i].AP_TRFAMT);
+                    row.getCell(10).value = Number(dt_Data[i].AP_TRAMT);
+                    row.getCell(11).value = Number(dt_Data[i].IMPVAT_FAMT);
+                    row.getCell(12).value = Number(dt_Data[i].IMPVAT_AMT);
+                    row.getCell(13).value = dt_Data[i].PL_CD;
+                    row.getCell(14).value = dt_Data[i].PL_NM;
+                    row.getCell(15).value = dt_Data[i].PARTNER_ID;
+                    row.getCell(16).value = dt_Data[i].PARTNER_NAME;
+                    row.getCell(17).value = dt_Data[i].SERIAL_NO;
+                    row.getCell(18).value = dt_Data[i].INVOICE_NO;
+                    row.getCell(19).value = dt_Data[i].INVOICE_DATE;
+                    row.getCell(20).value = dt_Data[i].REMARK2;
+                    row.getCell(21).value = dt_Data[i].WH_NAME;
+                    row.getCell(22).value = dt_Data[i].SEQ;
+                    
+                    if(dt_Data[i].ISTOTAL == '1')
+                    {
+                        
+                        row.getCell(1).font  = { italic: true, bold: true, color: {argb:'5ADFFA'} };
+                        row.getCell(4).font  = { italic: true, bold: true, color: {argb:'5ADFFA'} };
+                        row.getCell(9).font  = { italic: true, bold: true, color: {argb:'5ADFFA'} };
+                        row.getCell(9).numFmt  = '###,###,###,###.00';
+                        row.getCell(10).font = { italic: true, bold: true, color: {argb:'5ADFFA'} };
+                        l_length = l_length + 1;
+                        pos = pos + 1 ;
+                        Utils.excelInsertRows(worksheet, pos, 1);
+                        var row_sub = worksheet.getRow(pos);
+                        row_sub.getCell(1).value  = "P/L Unit Code || P/L Unit Name"; 
+                        row_sub.getCell(1).font  = { italic: true, bold: true, color: {argb:'F74848'} };
+                        row_sub.getCell(2).value = '';
+                        row_sub.getCell(3).value = '';
+                        row_sub.getCell(4).value = '';
+                        row_sub.getCell(5).value = '';
+                        row_sub.getCell(6).value = '';
+                        row_sub.getCell(7).value = '';
+                        row_sub.getCell(8).value = '';
+                        row_sub.getCell(9).value = '';
+                        row_sub.getCell(10).value = '';
+                        row_sub.getCell(11).value = '';
+                        row_sub.getCell(12).value = '';
+                        row_sub.getCell(13).value = '';
+                        row_sub.getCell(14).value = '';
+                        row_sub.getCell(15).value = '';
+                        row_sub.getCell(16).value = '';
+                        row_sub.getCell(17).value = '';
+                        row_sub.getCell(18).value = '';
+                        row_sub.getCell(19).value = '';
+                        row_sub.getCell(20).value = '';
+                        row_sub.getCell(21).value = '';
+                        row_sub.getCell(22).value = '';
+                    }
+                    pos = pos + 1; 
+                  
+
+                }  
+                var row = worksheet.getRow(pos-1);
+                worksheet.mergeCells(pos,1,pos,8); 
+                row.getCell(1).font = {  italic: true, bold: true }; 
+                row.getCell(8).numFmt  = '###,###,###,###.00';
+                row.getCell(9).font = {  italic: true, bold: true }; 
+                row.getCell(9).numFmt  = '###,###,###,###.00';
+                row.getCell(10).font = {  italic: true, bold: true }; 
+                /********* Print file excel ********/
+                const reportFile    = Helpers.tmpPath(file_new);
+                await workbook.xlsx.writeFile(reportFile)
+                return response.attachment( reportFile, file_new);
+            }
+        } 
+        catch (e) 
+        {
+            Utils.Logger({ LVL: "error", MODULE: "Report", FUNC: "rpt_6050061_AP_DETAIL_01", CONTENT: e.message })
+           // return response.send(Utils.response(false, e.message, null))
+           return response.send(null);
+        }
+    }  
+    async rpt_6050061_AP_DETAIL_02({ request, response, auth }) {
+        try 
+        { 
+            /*  P_RPT_ID: report_info.VAL1, P_RPT_URL: report_info.VAL2, P_RPT_FILE: report_info.VAL3,
+                P_COMP_ID: company_info.PARTNER_ID,P_COMP_NM: company_info.TEXT,P_COMP_TAX: company_info.TAX_CODE, P_COMP_ADD: company_info.ADDR1,
+                P_COMPANY: this.selectedCompany,P_TCO_BUSPLACE_PK: this.lstBizPlace, P_FR_DATE: this.from_date,P_FR_TO: this.to_date,P_VOUCHER_NO : this.txtVoucherNo,
+                P_PARTNER_PK : this.txtPartnerPK, P_ITEM_PK  : this.txtItem_PK, P_PL_PK : this.txtPLPK, P_ACC_PK: this.txtAccountPK, P_DELIVERY_NO : this.txtDeliveryNo,
+                P_SEQ  : this.txtSeq, P_STATUS : this.selectedStatus, P_WH_PK : this.selectedWH, 
+                P_BIZ_ID: BizPlace_info.NAME, P_BIZ_NM: BizPlace_info.LOC_NM, P_BIZ_TAX: BizPlace_info.TAX_CD, P_BIZ_ADD: BizPlace_info.ADDR_NM1
+            */
+            /****************************** Get Param *********************************/
+            let { para }        = request.get(['para']);
+            /********* Parse pram to json ********/
+            var item            = JSON.parse(para); 
+            const user          = await auth.getUser() ;
+            var COMP_ID         = item.P_COMP_ID, COMP_NM = item.P_COMP_NM, COMP_TAX = item.P_COMP_TAX, COMP_ADD = item.P_COMP_ADD;
+            var BIZ_ID          = item.P_BIZ_ID , BIZ_NM  = item.P_BIZ_NM , BIZ_TAX  = item.P_BIZ_TAX , BIZ_ADD  = item.P_BIZ_ADD;
+            const p_crt_by      = user.USER_ID;
+            const p_language    = request.header("accept-language", "ENG");
+            var file_nm         = [item.P_RPT_FILE];
+            var file_type       = ".xlsx";
+            var full_nm         = file_nm + file_type;
+            var file_new        = file_nm + p_crt_by + file_type;
+            var _resourcesPath  = [item.P_RPT_URL]+'/'+full_nm;
+            var _store          = "AC_RPT_6050061_02";
+            //var _circular       = "AC_SEL_GET_TT_BPL";
+            var _param          = [item.P_COMPANY, item.P_TCO_BUSPLACE_PK, item.P_FR_DATE, item.P_FR_TO, item.P_PARTNER_PK, item.P_ITEM_PK, item.P_VOUCHER_NO, item.P_PL_PK ,item.P_ACC_PK, item.P_DELIVERY_NO, item.P_SEQ, item.P_STATUS, item.P_WH_PK];
+           // var _param_TT       = [item.P_CIRCULARS];
+            /***************************** Return failded ****************************/
+            if (!user) 
+            {
+                return response.send(Utils.response(false, "Request failed!", null));
+            } 
+            /****************************** Begin call store and write excell *********/
+            else 
+            { 
+                /********* Call store  ***************/ 
+                var dt_Data  = await DBService.callProcCursor(_store, _param , p_language , p_crt_by); 
+                if (dt_Data.length>0) 
+                {
+                    dt_Data = dt_Data;
+                } 
+                else 
+                {
+                    return response.send(Utils.response(false, "no_data_found", null))
+                } 
+                var _dictionary     = await DBService.callProcCursor("GET_DICTIONARY_REPORT", null, p_language, p_crt_by); 
+                if (_dictionary.length>0) 
+                {
+                    _dictionary = _dictionary;
+                } 
+                else 
+                { 
+                    _dictionary = [];
+                } 
+                /********* Read file excel ********/ 
+                const templateFile  = Helpers.resourcesPath(_resourcesPath); 
+                await workbook.xlsx.readFile(templateFile);
+                var worksheet       = workbook.getWorksheet(1);
+                /********* Write file excel ********/
+               
+                //INFOMATION COMPANY
+                var r_item = worksheet.getRow(1);
+                r_item.getCell(1).value = Utils.translate("COMPANY",_dictionary , p_language) + ": " + BIZ_ID +" - "+ BIZ_NM;    
+                r_item = worksheet.getRow(2);
+                r_item.getCell(1).value = Utils.translate("TAX_CODE",_dictionary, p_language) + ": "+ BIZ_TAX;   
+                r_item = worksheet.getRow(3);
+                r_item.getCell(1).value = Utils.translate("ADDRESS",_dictionary , p_language) + ": "+ BIZ_ADD;
+                var FromDate = item.P_FR_DATE;
+                var ToDate = item.P_FR_TO;
+                var strFrDate = FromDate.substr(6,2) + "/"+ FromDate.substr(4,2)+ "/"+ FromDate.substr(0,4);
+                var strToDate = ToDate.substr(6,2) + "/"+ ToDate.substr(4,2)+ "/"+ ToDate.substr(0,4);
+                worksheet.getCell("A5").value =  dt_Data[0].TITLE_RPT;
+                worksheet.mergeCells('A5', 'W5');
+                
+                 // thông tư
+                
+                var pos = 9; 
+                var l_length = 0; 
+                let ttl_amt_qty = 0;
+                let ttl_famt_ap = 0;
+                let ttl_amt_ap = 0;
+                // if(dt_Data.length>1)
+                // {
+                //      worksheet.duplicateRow(pos,dt_Data.length-1,true);
+                // }  
+                
+                Utils.excelInsertRows(worksheet, pos, dt_Data.length-1);
+               for (var i = 0; i < dt_Data.length; i++) 
+                {
+
+                    var row = worksheet.getRow(pos);
+
+                    row.getCell(1).value = dt_Data[i].VOUCHERNO;
+                    row.getCell(2).value = dt_Data[i].SLIP_NO;
+                    row.getCell(3).value = dt_Data[i].TR_DATE;
+                    row.getCell(4).value = dt_Data[i].ITEM_CODE;
+                    row.getCell(5).value = dt_Data[i].ITEM_NAME;
+                    row.getCell(6).value = dt_Data[i].UOM;
+                    row.getCell(7).value = Number(dt_Data[i].AP_QTY);
+                    row.getCell(8).value = Number(dt_Data[i].AP_UPRICE);
+                    row.getCell(8).numFmt  = '###,###,###,###.00';
+                    row.getCell(9).value = Number(dt_Data[i].AP_TRFAMT);
+                    row.getCell(10).value = Number(dt_Data[i].AP_TRAMT);
+                    row.getCell(11).value = Number(dt_Data[i].IMP_AMT);
+                    row.getCell(12).value = Number(dt_Data[i].BOOKS_AMT_ALLOCATE);
+                    row.getCell(13).value = Number(dt_Data[i].TOTAL_AMT_ALLOCATE);
+                    row.getCell(14).value = dt_Data[i].UNITPRICE;
+                    row.getCell(15).value = dt_Data[i].PARTNER_ID;
+                    row.getCell(16).value = dt_Data[i].SERIAL_NO;
+                    row.getCell(17).value = dt_Data[i].INVOICE_NO;
+                    row.getCell(18).value = dt_Data[i].INVOICE_DATE;
+                    
+                    if(dt_Data[i].ISTOTAL == '1')
+                    {
+                        
+                        row.getCell(1).font  = { italic: true, bold: true, color: {argb:'5ADFFA'} };
+                        row.getCell(4).font  = { italic: true, bold: true, color: {argb:'5ADFFA'} };
+                        row.getCell(9).font  = { italic: true, bold: true, color: {argb:'5ADFFA'} };
+                        row.getCell(9).numFmt  = '###,###,###,###.00';
+                        row.getCell(10).font = { italic: true, bold: true, color: {argb:'5ADFFA'} };
+                        l_length = l_length + 1;
+                        pos = pos + 1 ;
+                        Utils.excelInsertRows(worksheet, pos, 1);
+                        var row_sub = worksheet.getRow(pos);
+                        row_sub.getCell(1).value  = "P/L Unit Code || P/L Unit Name"; 
+                        row_sub.getCell(1).font  = { italic: true, bold: true, color: {argb:'F74848'} };
+                        row_sub.getCell(2).value = '';
+                        row_sub.getCell(3).value = '';
+                        row_sub.getCell(4).value = '';
+                        row_sub.getCell(5).value = '';
+                        row_sub.getCell(6).value = '';
+                        row_sub.getCell(7).value = '';
+                        row_sub.getCell(8).value = '';
+                        row_sub.getCell(9).value = '';
+                        row_sub.getCell(10).value = '';
+                        row_sub.getCell(11).value = '';
+                        row_sub.getCell(12).value = '';
+                        row_sub.getCell(13).value = '';
+                        row_sub.getCell(14).value = '';
+                        row_sub.getCell(15).value = '';
+                        row_sub.getCell(16).value = '';
+                        row_sub.getCell(17).value = '';
+                        row_sub.getCell(18).value = '';
+                    }
+                    pos = pos + 1; 
+                  
+
+                }  
+                var row = worksheet.getRow(pos-1);
+                worksheet.mergeCells(pos,1,pos,8); 
+                row.getCell(1).font = {  italic: true, bold: true }; 
+                row.getCell(8).numFmt  = '###,###,###,###.00';
+                row.getCell(9).font = {  italic: true, bold: true }; 
+                row.getCell(9).numFmt  = '###,###,###,###.00';
+                row.getCell(10).font = {  italic: true, bold: true }; 
+                /********* Print file excel ********/
+                const reportFile    = Helpers.tmpPath(file_new);
+                await workbook.xlsx.writeFile(reportFile)
+                return response.attachment( reportFile, file_new);
+            }
+        } 
+        catch (e) 
+        {
+            Utils.Logger({ LVL: "error", MODULE: "Report", FUNC: "rpt_6050061_AP_DETAIL_02", CONTENT: e.message })
+           // return response.send(Utils.response(false, e.message, null))
+           return response.send(null);
+        }
+    }  
+}
+
+module.exports = rpt6050061;

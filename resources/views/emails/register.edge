@@ -1,0 +1,5 @@
+<p>Hi <span style="font-weight: bold">{{ username }}</span></p>
+<p style="font-weight: bold">Please verify your email address</p>
+<p>Click the link below to complete verification:</p>
+<a href="{{ rootUrl() }}/active?token={{ token }}">{{ rootUrl() }}/active?token={{ token }}</a>
+<p style="font-weight: bold">Regards,</p>

@@ -1,0 +1,106 @@
+  
+ select  cnt,--ROW_NUMBER() OVER (ORDER BY SKU)  
+               SKU,
+               CHN_NAME ,
+               GB_CODE,
+               color_name,
+               UPPER,
+               SIZE_LANG,
+               OGAC,
+               CP_DATE, 
+               po_no,
+               RANK() OVER (PARTITION BY SKU  ORDER BY  cnt)  AS  stt,
+                (total) as total,
+               qty,
+               LOSS_QTY,
+               PRINTED_QTY,
+               total_qty,
+               SIZE_NUM
+               from(
+ select  ROW_NUMBER() OVER (ORDER BY SKU)  as cnt, 
+               SKU,
+               CHN_NAME ,
+               GB_CODE,
+               color_name,
+               UPPER,
+               SIZE_LANG,
+               OGAC,
+               CP_DATE, 
+               po_no,
+               --RANK() OVER (PARTITION BY SKU  ORDER BY  cnt)  AS  
+               0 stt,
+                '/'||sum(total) as total,
+               sum(qty) qty,
+               sum(LOSS_QTY) LOSS_QTY,
+               sum(PRINTED_QTY) PRINTED_QTY,
+               sum(total_qty) total_qty,
+               SIZE_NUM
+               from(
+            select  rownum as cnt,--ROW_NUMBER() OVER (ORDER BY SKU)  
+               SKU,
+               CHN_NAME ,
+               GB_CODE,
+               color_name,
+               UPPER,
+               SIZE_LANG,
+               OGAC,
+               CP_DATE, 
+               null po_no,
+               --RANK() OVER (PARTITION BY po_no  ORDER BY  cnt)  
+               0 AS  stt,
+               count(*) OVER (PARTITION BY po_no  ORDER BY  OGAC) total,
+               qty,
+               LOSS_QTY,
+               (QTY+LOSS_QTY) AS PRINTED_QTY,
+               sum(QTY) OVER (PARTITION BY po_no    ORDER BY OGAC)  as total_qty,
+               SIZE_NUM
+               from(
+ SELECT 
+               rownum as  cnt,
+               a.PRODUCT_NAME                          AS SKU,
+               c.CHN_NAME ,
+               c.GB_CODE,
+               c.COLOR_LOCAL_LANGUAGE_NAME as color_name,
+               FN_TRANSLATE_cn_v2 (b.UPPER, 'UP', '/') UPPER,
+               a.SIZE_LANG,
+               to_char(to_date(a.ogac_date,'yyyymmdd')-60,'yyyy/mm/dd')  OGAC,
+               a.FACTORY_CODE as CP_DATE, 
+               a.PRODUCT_code as  po_no,
+               --RANK() OVER (PARTITION BY a.SIZE_LANG  ORDER BY  a.PRODUCT_NAME) 
+               0 stt,
+               (CASE WHEN a.qty >=10000 THEN 9 WHEN a.qty >= 5000 THEN 8 WHEN a.qty >= 3000 THEN 7
+                    WHEN a.qty >= 1000 THEN 6  WHEN a.qty >= 500  THEN 5 WHEN a.qty >= 100  THEN 4 WHEN a.qty >= 50   THEN 3 WHEN a.qty >= 1
+                    THEN 2 ELSE 0 END) loss_qty,
+               a.Qty,
+               a.SIZE_NUM,
+               a.ogac_date AS ogac_date_
+                    FROM TSW_IMP_ORDER a, TSW_IMP_MCL B, TSW_SEASON C
+                   WHERE     1 = 1
+                         AND a.del_if = 0
+                         AND b.del_if = 0
+                         AND c.del_if = 0
+                         AND a.PRODUCT_NAME = b.PRODUCT_CODE
+                         AND a.PRODUCT_NAME = c.PRODUCT_CODE
+                and   A.FACTORY_CODE=B.FACTORY_CODE 
+                and b.IMPORT_COUNTRY=a.company_code       
+                and A.FACTORY_CODE=:p_Factory
+                and A.COMPANY_CODE=:P_Company
+                and a.import_date=:p_import_date
+                AND (a.po_no like '%'||:p_AccountCode
+                or a.PRODUCT_NAME like '%'||:p_AccountCode
+                --or a.PRODUCT_code like '%'||p_AccountCode 
+                or :p_AccountCode is null)
+                order by a.PRODUCT_code,a.ogac_date,to_number(replace(a.SIZE_LANG,'(2.5)',''))
+                ))
+                group by
+                SKU,
+               CHN_NAME ,
+               GB_CODE,
+               color_name,
+               UPPER,
+               SIZE_LANG,
+               OGAC,
+               CP_DATE, 
+               po_no,
+               SIZE_NUM
+               ORDER BY  SKU,OGAC,SIZE_LANG); 

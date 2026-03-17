@@ -1,0 +1,305 @@
+<template>
+  <v-container fluid class="pa-0">
+    <v-row no-gutters>
+      <v-col cols="12">
+        <!-- Actions Bar -->
+        <v-row align="center" justify="center">
+          <v-col cols="12">
+            <v-card outlined tile>
+              <v-container fluid class="py-0">
+                <v-row align="start" justify="space-between">
+                  <v-col md="3" sm="6" cols="12">
+                    <v-text-field clearable dense hide-details outlined :label="$t('code', _dictformid)" @keypress.enter="search" v-model="code"></v-text-field>
+                  </v-col>
+                  <v-col md="3" sm="6" cols="12">
+                    <v-text-field clearable dense hide-details outlined :label="$t('parent_code', _dictformid)" @keypress.enter="search" v-model="parent_code"></v-text-field>
+                  </v-col>
+                  <v-col md="2" sm="6" cols="12">
+                   <v-text-field clearable dense hide-details outlined :label="$t('name', _dictformid)" @keypress.enter="search" v-model="name"></v-text-field>
+                  </v-col>
+                  <v-col md="2" sm="6" cols="12">
+                     <v-checkbox dense hide-details class="mt-0" :color="currentTheme" :label="$t('active', _dictformid)" v-model="active_yn"></v-checkbox>
+                    <!--v-text-field clearable dense hide-details outlined :label="$t('description', _dictformid)" v-model="description"></v-text-field-->
+                  </v-col>
+                  <v-col md="2" sm="12" cols="12" class="text-lg-right text-center">
+                    <v-btn icon tile :color="currentTheme" :disabled="isProcessing" @click="search">
+                      <v-icon>mdi-magnify</v-icon>
+                    </v-btn>
+                    <v-btn icon tile color="success" :disabled="isProcessing" @click="addNew">
+                      <v-icon>mdi-plus-thick</v-icon>
+                    </v-btn>
+                    <v-btn icon tile :color="currentTheme" :disabled="isProcessing" @click="save">
+                      <v-icon>mdi-content-save</v-icon>
+                    </v-btn>
+                  </v-col>
+                </v-row>
+              </v-container>
+            </v-card>
+          </v-col>
+        </v-row>
+        <!-- Data Table -->
+        <v-row align="center" justify="center">
+          <v-col cols="12" class="py-0">
+            <v-card outlined tile v-resize="onResize">
+              <v-data-table calculate-widths dense fixed-header hide-default-footer item-key="PK" transition="slide-y-transition" :height="limitHeight" :headers="dictionaryTableHeaders" :items="CommonCode" :items-per-page="CommonCode.length" :loading="isProcessing">
+                <!-- No Data Slot -->
+                <template v-slot:no-data>
+                  <v-alert dense tile border="left" type="info" :value="true">{{ $t('no_data') }}</v-alert>
+                </template>
+                <!-- Item Slot -->
+                <!-- <v-virtual-scroll :bench="20" :items="CommonCode"></v-virtual-scroll> -->
+                <template v-slot:item="{ item, index }">
+                  <!-- <tr :class="!item.PK && index === lastRow ? 'grey lighten-2' : ''">
+                    <template v-for="(thItem, thIndex) in dictionaryTableHeaders">
+                      <td class="text-start v-data-table__divider" :class="thIndex === lastRow ? 'borderBottom' : ''" :key="thIndex" v-if="thItem.value !== 'actions'">
+                        <component :is="thItem.gridType" :data="item[thItem.value]" :k="thItem.value" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></component>
+                      </td>
+                      <td class="text-center" :key="thIndex" v-else>
+                        <div v-if="item.PK">
+                          <v-icon small color="error" @click="openDeleteDialog(item.PK)">mdi-delete</v-icon>
+                        </div>
+                      </td>
+                    </template>
+                  </tr> -->
+                  <tr :class="!item.PK && index === lastRow ? 'grey lighten-2' : ''">
+                     <td class="text-start v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-text-field :data="item.ORD" :k="'ORD'" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></cell-grid-text-field>
+                    </td> 
+                    <td class="text-start v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-text-field :data="item.CODE" :k="'CODE'" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></cell-grid-text-field>
+                    </td>
+                    <td class="text-start v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-text-field :data="item.PARENT_CODE" :k="'PARENT_CODE'" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></cell-grid-text-field>
+                    </td>
+                    <td class="text-start v-data-table__divider cell-truncate" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-text-field :data="item.NAME" :k="'NAME'" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></cell-grid-text-field>
+                    </td>
+                    <td class="text-start v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-text-field :data="item.LNAME" :k="'LOCAL NAME'" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></cell-grid-text-field>
+                    </td>
+                    <td class="text-start v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-text-field :data="item.FNAME" :k="'FOREIGN NAME'" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></cell-grid-text-field>
+                    </td>
+                    <td class="text-start v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-text-field :data="item.NUM1" :k="'NUM1'" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></cell-grid-text-field>
+                    </td>
+                    <td class="text-start v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-text-field :data="item.NUM2" :k="'NUM2'" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></cell-grid-text-field>
+                    </td>
+                    <td class="text-start v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-text-field :data="item.NUM3" :k="'NUM3'" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></cell-grid-text-field>
+                    </td>
+
+                    <td class="text-start v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-text-field :data="item.VAL1" :k="'VAL1'" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></cell-grid-text-field>
+                    </td>
+                    <td class="text-start v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-text-field :data="item.VAL2" :k="'VAL2'" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></cell-grid-text-field>
+                    </td>
+                    <td class="text-start v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-text-field :data="item.VAL3" :k="'VAL3'" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></cell-grid-text-field>
+                    </td>
+
+                    <td class="text-start v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-checkbox :data="item.USE_YN" :k="'USE_YN'" :index="index" :trueValue="'Y'" :falseValue="'N'" @submitValue="changeValue"></cell-grid-checkbox>
+                    </td>
+                    <td class="text-start v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <cell-grid-text-field :data="item.DESCRIPTION" :k="'DESCRIPTION'" :index="index" :isAdded="newRowIsAdd" :type="'text'" @submitValue="changeValue"></cell-grid-text-field>
+                    </td>
+                    <td class="text-center v-data-table__divider" :class="index === lastRow ? 'borderBottom' : ''">
+                      <div v-if="item.PK">
+                        <v-icon small color="error" @click="openDeleteDialog(item.PK)">mdi-delete</v-icon>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </v-data-table>
+            </v-card>
+          </v-col>
+        </v-row>
+      </v-col>
+    </v-row>
+
+    <delete-dialog :deleteProps="deleteProps" v-if="deleteDialog" @closeDialog="closeDialog"></delete-dialog>
+  </v-container>
+</template>
+
+<script>
+import CellGridTextField from '@/components/table/CellGridTextField'
+import CellGridSelect from '@/components/table/CellGridSelect'
+import CellGridCheckbox from '@/components/table/CellGridCheckbox'
+import DeleteDialog from '@/components/dialog/DeleteDialog'
+export default {
+  layout: 'default',
+  middleaware: 'user',
+
+  components: { CellGridTextField, CellGridSelect,CellGridCheckbox, DeleteDialog },
+
+  data() {
+    return {
+      // Search Options
+      code: '',
+      parent_code: '',
+      name: '',
+      active_yn: true,
+
+      // Table Data
+      CommonCode: [],
+      newRowIsAdd: false,
+
+      deleteDialog: false,
+      deleteProps: []
+    }
+  },
+
+  
+  computed: {
+    limitHeight() { return this.windowHeight - 220 },
+    lastRow() { return this.CommonCode.length - 1 },
+    dictionaryTableHeaders() {
+      return [
+        { text: this.$t('ord', this._dictformid), value: 'ORD', class: 'text-uppercase secondary white--text', width: '8%', divider: true },  
+        { text: this.$t('code', this._dictformid), value: 'CODE', class: 'text-uppercase secondary white--text', width: '7%', divider: true },
+        { text: this.$t('parent code', this._dictformid), value: 'PARENT_CODE', class: 'text-uppercase secondary white--text', width: '12%', divider: true },
+        { text: this.$t('name', this._dictformid), value: 'NAME', class: 'text-uppercase secondary white--text', width: '8%', divider: true },
+        { text: this.$t('local name', this._dictformid), value: 'LNAME', class: 'text-uppercase secondary white--text', width: '7%', divider: true },
+        { text: this.$t('foreign name', this._dictformid), value: 'FNAME', class: 'text-uppercase secondary white--text', width: '8%', divider: true },
+        { text: this.$t('num1', this._dictformid), value: 'NUM1', class: 'text-uppercase secondary white--text', width: '6%', divider: true },
+        { text: this.$t('num2', this._dictformid), value: 'NUM2', class: 'text-uppercase secondary white--text', width: '6%', divider: true },
+        { text: this.$t('num3', this._dictformid), value: 'NUM3', class: 'text-uppercase secondary white--text', width: '6%', divider: true },
+        { text: this.$t('val1', this._dictformid), value: 'VAL1', class: 'text-uppercase secondary white--text', width: '6%', divider: true },
+        { text: this.$t('val2', this._dictformid), value: 'VAL2', class: 'text-uppercase secondary white--text', width: '6%', divider: true },
+        { text: this.$t('val3', this._dictformid), value: 'VAL3', class: 'text-uppercase secondary white--text', width: '6%', divider: true },
+        { text: this.$t('use yn', this._dictformid), value: 'USE_YN', class: 'text-uppercase secondary white--text',width: '7%', divider: true },
+        { text: this.$t('description', this._dictformid), value: 'DESCRIPTION', class: 'text-uppercase secondary white--text', width: '2%', divider: true },
+        { text: this.$t('actions'), value: 'actions', align: 'center', sortable: false, class: 'text-uppercase secondary white--text', width: '3%', divider: true }
+      ]
+    }
+  },
+
+  watch:{
+      active_yn(){
+        this.search()
+      },
+
+  },
+
+  methods: {
+    search() {
+      this.isProcessing = true
+      this.$axios.$post("dso/callproc", { proc: "SYS_SEL_SYCO001_COMMCODE", para: [ this.code ? this.code : '', this.parent_code ? this.parent_code : '', this.name ? this.name : '', this.active_yn ? -1 : 0 ] })
+        .then((res) => {
+          if(res.data && res.data.length) {
+            this.CommonCode = res.data
+            console.log(this.CommonCode)
+          } else {
+            this.CommonCode = []
+          }
+        })
+        .catch((e) => {
+          this.showNotification('danger', this.$t('error_occurs'), e.message)
+        })
+        .then(() => {
+          this.isProcessing = false
+        })
+    },
+
+    addNew() {
+      const newData = { PK: null, ORD: '', CODE: '', PARENT_CODE: '', NAME: '', LNAME: '', FNAME: '', NUM1: '', NUM2: '', NUM3: '', VAL1: '', VAL2: '', VAL3: '', USE_YN: 'N', DESCRIPTION: '' }
+      this.CommonCode.unshift(newData)
+      this.newRowIsAdd = true
+    },
+
+    changeValue(value, key, idx, isModified) {
+      this.CommonCode.map((item, index) => {
+        if(index === idx) {
+          this.$set(item, key, value)
+          item.isModified = isModified
+        }
+      })
+    },
+
+    save() {
+      var statusArr = []
+      
+      if(this.CommonCode.length) {
+          this.isProcessing = true
+        this.CommonCode.forEach(item => {
+          if(item.isModified) {
+            if(!item.PK) {
+              const data = [ 'INSERT', null, item.ORD?item.ORD:'', item.CODE?item.CODE:'', item.PARENT_CODE?item.PARENT_CODE:'', item.NAME?item.NAME:'', item.LNAME?item.LNAME:'', item.FNAME?item.FNAME:'', item.NUM1?item.NUM1:'', item.NUM2?item.NUM2:'', item.NUM3?item.NUM3:'', item.VAL1?item.VAL1:'', item.VAL2?item.VAL2:'', item.VAL3?item.VAL3:'', item.USE_YN ? item.USE_YN : 'N', item.DESCRIPTION?item.DESCRIPTION:'' ]
+              this.$axios.$post("dso/callproc", { proc: "SYS_UPD_SYCO001_COMMCODE", para: data })
+                .then((res) => {
+                  if(res.data) {
+                    this.$set(item, 'PK', res.data[0].PK)
+                    statusArr.push({ type: 'INSERT', status: 'success' })
+                   
+                  } else {
+                    this.showNotification('danger', 'Insert Failed!', res.message)
+                  }
+                })
+                .catch((e) => {
+                  this.showNotification('danger', this.$t('error_occurs'), e.message)
+                })
+                .then(() => {
+                  this.isProcessing = false
+                })
+            } else {
+              const data = [ 'UPDATE', item.PK, item.ORD?item.ORD:'', item.CODE?item.CODE:'', item.PARENT_CODE?item.PARENT_CODE:'', item.NAME?item.NAME:'', item.LNAME?item.LNAME:'', item.FNAME?item.FNAME:'', item.NUM1?item.NUM1:'', item.NUM2?item.NUM2:'', item.NUM3?item.NUM3:'', item.VAL1?item.VAL1:'', item.VAL2?item.VAL2:'', item.VAL3?item.VAL3:'', item.USE_YN ? item.USE_YN : 'N', item.DESCRIPTION?item.DESCRIPTION:''  ]
+              this.$axios.$post("dso/callproc", { proc: "SYS_UPD_SYCO001_COMMCODE", para: data })
+                .then((res) => {
+                  if(res.data) {
+                    statusArr.push({ type: 'UPDATE', status: 'success' })
+                    
+                  } else {
+                    this.showNotification('danger', 'Update Failed!', res.message)
+                  }
+                })
+                .catch((e) => {
+                  this.showNotification('danger', this.$t('error_occurs'), e.message)
+                })
+                .then(() => {
+                  this.isProcessing = false
+                })
+            }
+            delete item.isModified
+          }
+          else
+          {
+            this.isProcessing=false
+          }
+        })
+        setTimeout(() => {
+          if(statusArr.length) {
+            const numberOfInsert = (statusArr.filter(x => x.type === 'INSERT' && x.status === 'success')).length
+            const numberOfUpdate = (statusArr.filter(x => x.type === 'UPDATE' && x.status === 'success')).length
+            const notifyMessage = `Insert Successfully ${numberOfInsert} ${numberOfInsert > 1 ? 'rows' : 'row'} & Update Successfully ${numberOfUpdate} ${numberOfUpdate > 1 ? 'rows' : 'row'}`
+            this.showNotification('success', 'Modify Successfully!', notifyMessage)
+            statusArr = []
+            this.search()
+          }
+          
+        }, 1000);
+      }
+    },
+
+    openDeleteDialog(itemPK) {
+      this.deleteDialog = true
+      this.deleteProps = {
+        proc: "SYS_UPD_SYCO001_COMMCODE",
+        para: [ 'DELETE', itemPK, null,null, null, null, null,null,null,null,null,null,null,null,null,null ]
+      }
+    },
+
+    closeDialog(deletedItemPK) {
+      this.deleteDialog = false
+      if(deletedItemPK) {
+        const idx = this.CommonCode.findIndex(x => x.PK === deletedItemPK)
+        if(idx > -1) {
+          this.CommonCode.splice(idx, 1)
+        }
+      }
+    }
+  }
+}
+</script>
